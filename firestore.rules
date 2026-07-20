@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: auto-generated
+// Fields:
+//   - username: string (required, 2-40 chars)
+//   - role: string (required, one of 'admin' | 'user')
+//   - enabled: boolean (required)
+//   - createdAt: timestamp (required, server-set, IMMUTABLE after create)
+//   - updatedAt: timestamp (required, server-set on every write)
+//
+// No PII is stored on these documents (no email/phone/etc. per product
+// requirements) - only an internal username and role label.
+//
+// Collection: config
+// Document: allowlist (fixed id, singleton)
+// Fields:
+//   - emails: list<string> (required) - lowercase emails allowed to use
+//     the app. Edited directly in the Firebase Console (Firestore Data
+//     tab); never writable by clients (see rules below).
+//
+// Access model: this is an internal admin tool with no public access.
+// Every read and write (including delete) on /users requires the caller
+// to be signed in AND for their token email to be listed in
+// /config/allowlist. This is the sole enforcement layer on the
+// project's free Spark plan, since Auth Blocking Functions and the
+// Cloud Function deletion path (see functions/src/index.ts) both
+// require the Blaze plan to deploy and are currently dormant. Anyone
+// can still complete Google/email sign-in, but non-allowlisted accounts
+// get "permission denied" on every Firestore operation. If the project
+// is later upgraded to Blaze, redeploying functions/src/index.ts adds a
+// second, stronger layer that rejects sign-in outright instead (it
+// reads the same /config/allowlist document via the Admin SDK).
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Reads the allowlist from /config/allowlist. `get()` reads the
+    // target document directly - it does NOT apply that document's own
+    // security rules, so this can't recurse. The document itself is
+    // still explicitly locked down below so clients can never read or
+    // write it directly.
+    function isAllowlisted() {
+      return isAuthenticated() &&
+        request.auth.token.email in
+          get(/databases/$(database)/documents/config/allowlist).data.emails;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidRole() {
+      return request.resource.data.role in ['admin', 'user'];
+    }
+
+    // True when the field was set with the serverTimestamp() sentinel,
+    // i.e. it resolves to exactly the server's write time. Prevents
+    // clients from writing arbitrary past/future timestamps.
+    function isServerTimestamp(field) {
+      return request.resource.data[field] == request.time;
+    }
+
+    // Validates the FULL resulting document shape/types. Used on both
+    // create and update so a valid document can never be updated into an
+    // invalid one by touching only a subset of fields.
+    function isValidUserDoc() {
+      return hasOnlyAllowedFields(['username', 'role', 'enabled', 'createdAt', 'updatedAt']) &&
+        hasRequiredFields(['username', 'role', 'enabled', 'createdAt', 'updatedAt']) &&
+        validStringLength('username', 2, 40) &&
+        isValidRole() &&
+        request.resource.data.enabled is bool &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidNewUser() {
+      return isValidUserDoc() &&
+        isServerTimestamp('createdAt') &&
+        isServerTimestamp('updatedAt');
+    }
+
+    function isValidUserUpdate() {
+      return isValidUserDoc() &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        isServerTimestamp('updatedAt');
+    }
+
+    match /users/{userId} {
+      allow read: if isAllowlisted();
+      allow create: if isAllowlisted() && isValidNewUser();
+      allow update: if isAllowlisted() && isValidUserUpdate();
+      allow delete: if isAllowlisted();
+    }
+
+    // Never directly readable or writable by clients - only reachable
+    // internally via get() inside isAllowlisted() above. Edit its
+    // contents from the Firebase Console or the Admin SDK.
+    match /config/{document} {
+      allow read, write: if false;
+    }
+  }
+}
