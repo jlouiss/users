@@ -1,8 +1,12 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { Auth } from './auth';
 import { Login } from './login';
+
+@Component({ selector: 'app-dummy-users-page', template: '' })
+class DummyUsersPage {}
 
 vi.mock('firebase/auth', () => ({
   getAuth: vi.fn(() => ({})),
@@ -21,7 +25,7 @@ describe('Login', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [Login],
-      providers: [provideRouter([])],
+      providers: [provideRouter([{ path: 'users', component: DummyUsersPage }])],
     });
   });
 
@@ -32,7 +36,9 @@ describe('Login', () => {
 
     expect(compiled.querySelector('input#email')).toBeTruthy();
     expect(compiled.querySelector('input#password')).toBeTruthy();
-    expect(compiled.querySelector('button.google-button')?.textContent).toContain('Sign in with Google');
+    expect(compiled.querySelector('button.google-button')?.textContent).toContain(
+      'Sign in with Google',
+    );
   });
 
   it('shows validation errors once the form is touched and submitted', async () => {
@@ -59,5 +65,34 @@ describe('Login', () => {
     (fixture.nativeElement.querySelector('button.google-button') as HTMLButtonElement).click();
 
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches to sign-up mode and creates an account on submit', async () => {
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+    const authService = TestBed.inject(Auth);
+    const spy = vi.spyOn(authService, 'signUpWithEmail').mockResolvedValue();
+
+    (fixture.nativeElement.querySelector('button.link-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain(
+      'Create account',
+    );
+
+    const emailInput = compiled.querySelector('#email') as HTMLInputElement;
+    const passwordInput = compiled.querySelector('#password') as HTMLInputElement;
+    emailInput.value = 'new@example.com';
+    emailInput.dispatchEvent(new Event('input'));
+    passwordInput.value = 'secret1';
+    passwordInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const form = compiled.querySelector('form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(spy).toHaveBeenCalledWith('new@example.com', 'secret1');
   });
 });

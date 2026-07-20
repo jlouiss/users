@@ -1,6 +1,7 @@
 import { Service, signal } from '@angular/core';
 import {
   GoogleAuthProvider,
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -42,6 +43,10 @@ export class Auth {
 
   async signInWithEmail(email: string, password: string): Promise<void> {
     await signInWithEmailAndPassword(auth, email, password);
+  }
+
+  async signUpWithEmail(email: string, password: string): Promise<void> {
+    await createUserWithEmailAndPassword(auth, email, password);
   }
 
   async signOut(): Promise<void> {

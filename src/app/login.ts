@@ -1,8 +1,18 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormField, email, required, schema, submit, form } from '@angular/forms/signals';
+import {
+  FormField,
+  email,
+  minLength,
+  required,
+  schema,
+  submit,
+  form,
+} from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { Auth } from './auth';
+
+type Mode = 'signin' | 'signup';
 
 interface LoginModel {
   email: string;
@@ -13,6 +23,7 @@ const loginSchema = schema<LoginModel>((path) => {
   required(path.email, { message: 'Email is required.' });
   email(path.email, { message: 'Enter a valid email address.' });
   required(path.password, { message: 'Password is required.' });
+  minLength(path.password, 6, { message: 'Password must be at least 6 characters.' });
 });
 
 function authErrorMessage(error: unknown): string {
@@ -22,6 +33,12 @@ function authErrorMessage(error: unknown): string {
     case 'auth/wrong-password':
     case 'auth/user-not-found':
       return 'Incorrect email or password.';
+    case 'auth/email-already-in-use':
+      return 'An account already exists for that email. Try signing in instead.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait a moment and try again.';
     case 'auth/popup-closed-by-user':
@@ -31,7 +48,7 @@ function authErrorMessage(error: unknown): string {
     case 'auth/permission-denied':
       return 'This account is not authorized to access this application.';
     default:
-      return 'Something went wrong while signing in. Please try again.';
+      return 'Something went wrong. Please try again.';
   }
 }
 
@@ -42,7 +59,9 @@ function authErrorMessage(error: unknown): string {
     <div class="login-page">
       <form class="login-card" (submit)="onSubmit($event)" novalidate>
         <h1>Manage Users</h1>
-        <p class="subtitle">Sign in to continue</p>
+        <p class="subtitle">
+          {{ mode() === 'signin' ? 'Sign in to continue' : 'Create an account to continue' }}
+        </p>
 
         @if (errorMessage()) {
           <p class="form-error" role="alert">{{ errorMessage() }}</p>
@@ -56,7 +75,9 @@ function authErrorMessage(error: unknown): string {
             autocomplete="email"
             [formField]="loginForm.email"
             [attr.aria-invalid]="loginForm.email().invalid() && loginForm.email().touched()"
-            [attr.aria-describedby]="loginForm.email().invalid() && loginForm.email().touched() ? 'email-error' : null"
+            [attr.aria-describedby]="
+              loginForm.email().invalid() && loginForm.email().touched() ? 'email-error' : null
+            "
           />
           @if (loginForm.email().touched() && loginForm.email().invalid()) {
             <p id="email-error" class="field-error" role="alert">
@@ -70,11 +91,13 @@ function authErrorMessage(error: unknown): string {
           <input
             id="password"
             type="password"
-            autocomplete="current-password"
+            [autocomplete]="mode() === 'signin' ? 'current-password' : 'new-password'"
             [formField]="loginForm.password"
             [attr.aria-invalid]="loginForm.password().invalid() && loginForm.password().touched()"
             [attr.aria-describedby]="
-              loginForm.password().invalid() && loginForm.password().touched() ? 'password-error' : null
+              loginForm.password().invalid() && loginForm.password().touched()
+                ? 'password-error'
+                : null
             "
           />
           @if (loginForm.password().touched() && loginForm.password().invalid()) {
@@ -85,7 +108,19 @@ function authErrorMessage(error: unknown): string {
         </div>
 
         <button type="submit" class="primary-button" [disabled]="busy()">
-          {{ busy() ? 'Signing in…' : 'Sign in' }}
+          @if (busy()) {
+            {{ mode() === 'signin' ? 'Signing in…' : 'Creating account…' }}
+          } @else {
+            {{ mode() === 'signin' ? 'Sign in' : 'Create account' }}
+          }
+        </button>
+
+        <button type="button" class="link-button" [disabled]="busy()" (click)="toggleMode()">
+          {{
+            mode() === 'signin'
+              ? "Don't have an account? Create one"
+              : 'Already have an account? Sign in'
+          }}
         </button>
 
         <div class="divider" role="separator" aria-label="Or">
@@ -113,7 +148,9 @@ function authErrorMessage(error: unknown): string {
       max-width: 22rem;
       background: #fff;
       border-radius: 0.75rem;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.06),
+        0 8px 24px rgba(0, 0, 0, 0.08);
       padding: 2rem;
       box-sizing: border-box;
     }
@@ -194,9 +231,30 @@ function authErrorMessage(error: unknown): string {
     }
 
     .primary-button:disabled,
-    .google-button:disabled {
+    .google-button:disabled,
+    .link-button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    .link-button {
+      display: block;
+      width: 100%;
+      margin-top: 0.75rem;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      background: none;
+      border: none;
+      color: #2563eb;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .link-button:hover:not(:disabled) {
+      color: #1d4ed8;
     }
 
     .divider {
@@ -243,6 +301,7 @@ export class Login {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
+  protected readonly mode = signal<Mode>('signin');
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
@@ -253,6 +312,13 @@ export class Login {
     return this.route.snapshot.queryParamMap.get('returnUrl') || '/users';
   }
 
+  toggleMode(): void {
+    this.mode.set(this.mode() === 'signin' ? 'signup' : 'signin');
+    this.errorMessage.set(null);
+    this.model.update((value) => ({ ...value, password: '' }));
+    this.loginForm().reset();
+  }
+
   async onSubmit(event: Event): Promise<void> {
     event.preventDefault();
     this.errorMessage.set(null);
@@ -261,7 +327,11 @@ export class Login {
     let signedIn = false;
     try {
       await submit(this.loginForm, async () => {
-        await this.authService.signInWithEmail(this.model().email, this.model().password);
+        if (this.mode() === 'signin') {
+          await this.authService.signInWithEmail(this.model().email, this.model().password);
+        } else {
+          await this.authService.signUpWithEmail(this.model().email, this.model().password);
+        }
         signedIn = true;
       });
     } catch (error) {
