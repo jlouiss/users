@@ -22,10 +22,10 @@ import { HlmEmptyImports } from '@spartan-ng/helm/empty';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { HlmInputGroupImports } from '@spartan-ng/helm/input-group';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
 import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 
 import { Auth } from './auth';
 import { ThemeService } from './theme';
@@ -73,10 +73,10 @@ function formatTimestamp(value: unknown): string {
     HlmFieldImports,
     HlmInputGroupImports,
     HlmInputImports,
+    HlmNativeSelectImports,
     HlmPaginationImports,
     HlmSpinnerImports,
     HlmTableImports,
-    HlmToggleGroupImports,
   ],
   providers: [provideIcons({ lucideChevronLeft, lucideChevronRight, lucideMoon, lucideSearch, lucideSun })],
   template: `
@@ -121,19 +121,12 @@ function formatTimestamp(value: unknown): string {
                 }
               </div>
 
-              <div hlmField class="w-fit">
-                <label hlmFieldLabel id="new-role-label">Role</label>
-                <hlm-toggle-group
-                  type="single"
-                  variant="outline"
-                  [nullable]="false"
-                  aria-labelledby="new-role-label"
-                  [value]="addForm.role().value()"
-                  (valueChange)="setAddRole($event)"
-                >
-                  <button hlmToggleGroupItem value="user" class="px-4">User</button>
-                  <button hlmToggleGroupItem value="admin" class="px-4">Admin</button>
-                </hlm-toggle-group>
+              <div hlmField class="w-40">
+                <label hlmFieldLabel for="new-role">Role</label>
+                <hlm-native-select id="new-role" selectClass="h-8 ps-2.5 text-sm" [formField]="addForm.role">
+                  <option hlmNativeSelectOption value="user">User</option>
+                  <option hlmNativeSelectOption value="admin">Admin</option>
+                </hlm-native-select>
               </div>
 
               <button hlmBtn type="submit" class="self-end" [disabled]="addBusy()">
@@ -214,6 +207,7 @@ function formatTimestamp(value: unknown): string {
                       <th hlmTh scope="col">Role</th>
                       <th hlmTh scope="col">Status</th>
                       <th hlmTh scope="col">Created</th>
+                      <th hlmTh scope="col">Updated</th>
                       <th hlmTh scope="col">Actions</th>
                     </tr>
                   </thead>
@@ -221,7 +215,7 @@ function formatTimestamp(value: unknown): string {
                     @for (user of usersService.users(); track user.id) {
                       @if (editingUserId() === user.id) {
                         <tr hlmTr>
-                          <td hlmTd colspan="5">
+                          <td hlmTd colspan="6">
                             <form
                               class="flex flex-wrap items-start gap-4 py-2"
                               [formRoot]="editForm"
@@ -241,19 +235,16 @@ function formatTimestamp(value: unknown): string {
                                   <hlm-field-error [validator]="error.kind">{{ error.message }}</hlm-field-error>
                                 }
                               </div>
-                              <div hlmField class="w-fit">
-                                <label hlmFieldLabel [id]="'edit-role-label-' + user.id">Role</label>
-                                <hlm-toggle-group
-                                  type="single"
-                                  variant="outline"
-                                  [nullable]="false"
-                                  [attr.aria-labelledby]="'edit-role-label-' + user.id"
-                                  [value]="editForm.role().value()"
-                                  (valueChange)="setEditRole($event)"
+                              <div hlmField class="w-40">
+                                <label hlmFieldLabel [for]="'edit-role-' + user.id">Role</label>
+                                <hlm-native-select
+                                  [id]="'edit-role-' + user.id"
+                                  selectClass="h-8 ps-2.5 text-sm"
+                                  [formField]="editForm.role"
                                 >
-                                  <button hlmToggleGroupItem value="user" class="px-4">User</button>
-                                  <button hlmToggleGroupItem value="admin" class="px-4">Admin</button>
-                                </hlm-toggle-group>
+                                  <option hlmNativeSelectOption value="user">User</option>
+                                  <option hlmNativeSelectOption value="admin">Admin</option>
+                                </hlm-native-select>
                               </div>
                               <div class="flex items-end gap-2">
                                 <button hlmBtn type="submit" size="sm" [disabled]="editBusy()">
@@ -276,6 +267,7 @@ function formatTimestamp(value: unknown): string {
                             </span>
                           </td>
                           <td hlmTd>{{ formatTimestamp(user.createdAt) }}</td>
+                          <td hlmTd>{{ formatTimestamp(user.updatedAt) }}</td>
                           <td hlmTd>
                             <div class="flex flex-wrap gap-2">
                               <button hlmBtn type="button" variant="outline" size="sm" (click)="startEdit(user)">
@@ -370,18 +362,6 @@ export class ManageUsers {
 
   onSearch(event: Event): void {
     this.usersService.setSearchTerm((event.target as HTMLInputElement).value);
-  }
-
-  protected setAddRole(value: UserRole | UserRole[] | null | undefined): void {
-    if (typeof value === 'string') {
-      this.addForm.role().value.set(value);
-    }
-  }
-
-  protected setEditRole(value: UserRole | UserRole[] | null | undefined): void {
-    if (typeof value === 'string') {
-      this.editForm.role().value.set(value);
-    }
   }
 
   async onAddUser(event: Event): Promise<void> {
