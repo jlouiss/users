@@ -61,6 +61,12 @@
       "skillPath": "skills/firebase-security-rules-auditor/SKILL.md",
       "computedHash": "7d05c33d2e00c1d26cbd99ae174272fdd962e63b67c801e2fc050cc63e681723"
     },
+    "spartan": {
+      "source": "spartan-ng/spartan",
+      "sourceType": "github",
+      "skillPath": "skills/spartan/SKILL.md",
+      "computedHash": "126d1eba31bef1c33c37ce3675bc20d0e74a5c2f42625d7837d5c8fae25234e5"
+    },
     "xcode-project-setup": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
