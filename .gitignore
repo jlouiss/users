@@ -43,6 +43,7 @@ __screenshots__/
 /.firebase
 firebase-debug.log
 firebase-debug.*.log
+service-account.json
 
 # System files
 .DS_Store

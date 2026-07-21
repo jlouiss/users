@@ -11,7 +11,8 @@
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:auth": "firebase deploy --only auth",
-    "deploy:functions": "firebase deploy --only functions"
+    "deploy:functions": "firebase deploy --only functions",
+    "seed": "node scripts/seed-users.mjs"
   },
   "private": true,
   "packageManager": "npm@12.0.1",
@@ -43,6 +44,7 @@
     "@angular/compiler-cli": "^22.0.0",
     "@spartan-ng/cli": "^1.1.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "firebase-admin": "^13.10.0",
     "firebase-tools": "^15.24.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
