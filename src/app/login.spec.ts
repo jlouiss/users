@@ -36,9 +36,9 @@ describe('Login', () => {
 
     expect(compiled.querySelector('input#email')).toBeTruthy();
     expect(compiled.querySelector('input#password')).toBeTruthy();
-    expect(compiled.querySelector('button.google-button')?.textContent).toContain(
-      'Sign in with Google',
-    );
+    const googleButton = compiled.querySelector('button.google-button');
+    expect(googleButton?.getAttribute('aria-label')).toBe('Sign in with Google');
+    expect(googleButton?.querySelector('img')).toBeTruthy();
   });
 
   it('shows validation errors once the form is touched and submitted', async () => {

@@ -47,7 +47,10 @@ function authErrorMessage(error: unknown): string {
     case 'auth/internal-error':
     case 'auth/permission-denied':
       return 'This account is not authorized to access this application.';
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized for sign-in. Contact an admin.';
     default:
+      console.error('Unrecognized auth error:', error);
       return 'Something went wrong. Please try again.';
   }
 }
@@ -127,8 +130,14 @@ function authErrorMessage(error: unknown): string {
           <span>or</span>
         </div>
 
-        <button type="button" class="google-button" [disabled]="busy()" (click)="onGoogleSignIn()">
-          Sign in with Google
+        <button
+          type="button"
+          class="google-button"
+          [disabled]="busy()"
+          (click)="onGoogleSignIn()"
+          aria-label="Sign in with Google"
+        >
+          <img src="sign-in-light.svg" alt="" width="180" height="40" />
         </button>
       </form>
     </div>
@@ -275,19 +284,26 @@ function authErrorMessage(error: unknown): string {
     }
 
     .google-button {
-      width: 100%;
-      font: inherit;
-      font-weight: 500;
-      padding: 0.55rem 1rem;
-      border: 1px solid #d1d5db;
+      display: block;
+      width: 180px;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0;
+      border: none;
       border-radius: 0.5rem;
-      background: #fff;
-      color: #111827;
+      background: none;
+      line-height: 0;
       cursor: pointer;
     }
 
-    .google-button:hover:not(:disabled) {
-      background: #f9fafb;
+    .google-button img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .google-button:hover:not(:disabled) img {
+      filter: brightness(0.97);
     }
 
     button:focus-visible {
