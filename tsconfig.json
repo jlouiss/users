@@ -27,7 +27,9 @@
       "@spartan-ng/helm/empty": ["./libs/ui/empty/src/index.ts"],
       "@spartan-ng/helm/spinner": ["./libs/ui/spinner/src/index.ts"],
       "@spartan-ng/helm/pagination": ["./libs/ui/pagination/src/index.ts"],
-      "@spartan-ng/helm/select": ["./libs/ui/select/src/index.ts"]
+      "@spartan-ng/helm/select": ["./libs/ui/select/src/index.ts"],
+      "@spartan-ng/helm/input-group": ["./libs/ui/input-group/src/index.ts"],
+      "@spartan-ng/helm/textarea": ["./libs/ui/textarea/src/index.ts"]
     }
   },
   "angularCompilerOptions": {

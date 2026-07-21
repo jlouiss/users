@@ -1,8 +1,34 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { FormField, maxLength, minLength, required, schema, submit, form } from '@angular/forms/signals';
+import {
+  FormField,
+  FormRoot,
+  maxLength,
+  minLength,
+  required,
+  schema,
+  submit,
+  form,
+} from '@angular/forms/signals';
 import { Router } from '@angular/router';
 
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideChevronLeft, lucideChevronRight, lucideMoon, lucideSearch, lucideSun } from '@ng-icons/lucide';
+
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmEmptyImports } from '@spartan-ng/helm/empty';
+import { HlmFieldImports } from '@spartan-ng/helm/field';
+import { HlmInputGroupImports } from '@spartan-ng/helm/input-group';
+import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmPaginationImports } from '@spartan-ng/helm/pagination';
+import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
+import { HlmTableImports } from '@spartan-ng/helm/table';
+import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
+
 import { Auth } from './auth';
+import { ThemeService } from './theme';
 import { Users } from './users';
 import type { UserDocument, UserRole } from '../models/user';
 
@@ -35,461 +61,289 @@ function formatTimestamp(value: unknown): string {
 
 @Component({
   selector: 'app-manage-users',
-  imports: [FormField],
+  imports: [
+    FormField,
+    FormRoot,
+    NgIcon,
+    HlmAlertImports,
+    HlmBadgeImports,
+    HlmButtonImports,
+    HlmCardImports,
+    HlmEmptyImports,
+    HlmFieldImports,
+    HlmInputGroupImports,
+    HlmInputImports,
+    HlmPaginationImports,
+    HlmSpinnerImports,
+    HlmTableImports,
+    HlmToggleGroupImports,
+  ],
+  providers: [provideIcons({ lucideChevronLeft, lucideChevronRight, lucideMoon, lucideSearch, lucideSun })],
   template: `
-    <div class="page">
-      <header class="topbar">
-        <h1>Manage Users</h1>
-        <div class="topbar-account">
+    <div class="bg-muted min-h-dvh">
+      <header class="bg-card border-border flex items-center justify-between gap-4 border-b px-6 py-4">
+        <h1 class="text-xl font-semibold">Manage Users</h1>
+        <div class="flex items-center gap-3">
           @if (currentUserEmail()) {
-            <span class="account-email">{{ currentUserEmail() }}</span>
+            <span class="text-muted-foreground text-sm">{{ currentUserEmail() }}</span>
           }
-          <button type="button" class="ghost-button" (click)="onSignOut()">Sign out</button>
+          <button
+            hlmBtn
+            type="button"
+            variant="outline"
+            size="icon"
+            [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+            (click)="theme.toggle()"
+          >
+            <ng-icon [name]="theme.theme() === 'dark' ? 'lucideSun' : 'lucideMoon'" />
+          </button>
+          <button hlmBtn type="button" variant="outline" size="sm" (click)="onSignOut()">Sign out</button>
         </div>
       </header>
 
-      <main class="content">
-        <section class="card" aria-labelledby="add-user-heading">
-          <h2 id="add-user-heading">Add user</h2>
-          <form class="add-user-form" (submit)="onAddUser($event)" novalidate>
-            <div class="field">
-              <label for="new-username">Username</label>
-              <input
-                id="new-username"
-                type="text"
-                autocomplete="off"
-                [formField]="addForm.username"
-                [attr.aria-invalid]="addForm.username().invalid() && addForm.username().touched()"
-                [attr.aria-describedby]="
-                  addForm.username().invalid() && addForm.username().touched() ? 'new-username-error' : null
-                "
-              />
-              @if (addForm.username().touched() && addForm.username().invalid()) {
-                <p id="new-username-error" class="field-error" role="alert">
-                  {{ addForm.username().errors()[0]?.message }}
-                </p>
-              }
-            </div>
+      <main class="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+        <section hlmCard aria-labelledby="add-user-heading">
+          <div hlmCardHeader>
+            <h2 hlmCardTitle id="add-user-heading">Add user</h2>
+          </div>
+          <div hlmCardContent>
+            <form
+              class="flex flex-wrap items-start gap-4"
+              [formRoot]="addForm"
+              (submit)="onAddUser($event)"
+              novalidate
+            >
+              <div hlmField class="min-w-48 flex-1">
+                <label hlmFieldLabel for="new-username">Username</label>
+                <input hlmInput id="new-username" type="text" autocomplete="off" [formField]="addForm.username" />
+                @for (error of addForm.username().errors(); track error.kind) {
+                  <hlm-field-error [validator]="error.kind">{{ error.message }}</hlm-field-error>
+                }
+              </div>
 
-            <div class="field">
-              <label for="new-role">Role</label>
-              <select id="new-role" [formField]="addForm.role">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
+              <div hlmField class="w-fit">
+                <label hlmFieldLabel id="new-role-label">Role</label>
+                <hlm-toggle-group
+                  type="single"
+                  variant="outline"
+                  [nullable]="false"
+                  aria-labelledby="new-role-label"
+                  [value]="addForm.role().value()"
+                  (valueChange)="setAddRole($event)"
+                >
+                  <button hlmToggleGroupItem value="user" class="px-4">User</button>
+                  <button hlmToggleGroupItem value="admin" class="px-4">Admin</button>
+                </hlm-toggle-group>
+              </div>
 
-            <button type="submit" class="primary-button" [disabled]="addBusy()">
-              {{ addBusy() ? 'Adding…' : 'Add user' }}
-            </button>
-          </form>
-          @if (addError()) {
-            <p class="form-error" role="alert">{{ addError() }}</p>
-          }
+              <button hlmBtn type="submit" class="self-end" [disabled]="addBusy()">
+                @if (addBusy()) {
+                  <hlm-spinner />
+                }
+                {{ addBusy() ? 'Adding…' : 'Add user' }}
+              </button>
+            </form>
+            @if (addError()) {
+              <div hlmAlert variant="destructive" class="mt-4" role="alert">
+                <p hlmAlertDescription>{{ addError() }}</p>
+              </div>
+            }
+          </div>
         </section>
 
-        <section class="card" aria-labelledby="users-heading">
-          <div class="card-header-row">
-            <h2 id="users-heading">Users</h2>
-            <div class="search-field">
-              <label for="search">Search by username or role</label>
-              <input
-                id="search"
-                type="search"
-                placeholder="e.g. admin, ada"
-                [value]="usersService.searchTerm()"
-                (input)="onSearch($event)"
-              />
-            </div>
+        <section hlmCard aria-labelledby="users-heading">
+          <div hlmCardHeader>
+            <h2 hlmCardTitle id="users-heading">Users</h2>
           </div>
 
-          @if (actionError()) {
-            <p class="form-error" role="alert">{{ actionError() }}</p>
-          }
-
-          @if (usersService.error()) {
-            <p class="form-error" role="alert">{{ usersService.error() }}</p>
-          }
-
-          @if (usersService.loading()) {
-            <p class="empty-state">Loading users…</p>
-          } @else if (usersService.filteredUsers().length === 0) {
-            <p class="empty-state">
-              @if (usersService.searchTerm()) {
-                No users match "{{ usersService.searchTerm() }}".
-              } @else {
-                No users yet. Add one above to get started.
-              }
-            </p>
-          } @else {
-            <div class="table-scroll">
-              <table>
-                <caption class="visually-hidden">List of users, their role and status</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Username</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Created</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (user of usersService.filteredUsers(); track user.id) {
-                    @if (editingUserId() === user.id) {
-                      <tr>
-                        <td colspan="5">
-                          <form class="edit-user-form" (submit)="onSaveEdit($event, user)" novalidate>
-                            <div class="field">
-                              <label [for]="'edit-username-' + user.id">Username</label>
-                              <input
-                                [id]="'edit-username-' + user.id"
-                                type="text"
-                                autocomplete="off"
-                                [formField]="editForm.username"
-                              />
-                              @if (editForm.username().touched() && editForm.username().invalid()) {
-                                <p class="field-error" role="alert">
-                                  {{ editForm.username().errors()[0]?.message }}
-                                </p>
-                              }
-                            </div>
-                            <div class="field">
-                              <label [for]="'edit-role-' + user.id">Role</label>
-                              <select [id]="'edit-role-' + user.id" [formField]="editForm.role">
-                                <option value="user">User</option>
-                                <option value="admin">Admin</option>
-                              </select>
-                            </div>
-                            <div class="row-actions">
-                              <button type="submit" class="primary-button" [disabled]="editBusy()">
-                                {{ editBusy() ? 'Saving…' : 'Save' }}
-                              </button>
-                              <button type="button" class="ghost-button" (click)="cancelEdit()">Cancel</button>
-                            </div>
-                          </form>
-                        </td>
-                      </tr>
-                    } @else {
-                      <tr>
-                        <td data-label="Username">{{ user.username }}</td>
-                        <td data-label="Role">{{ user.role }}</td>
-                        <td data-label="Status">
-                          <span class="status-pill" [class.status-disabled]="!user.enabled">
-                            {{ user.enabled ? 'Enabled' : 'Disabled' }}
-                          </span>
-                        </td>
-                        <td data-label="Created">{{ formatTimestamp(user.createdAt) }}</td>
-                        <td data-label="Actions" class="row-actions">
-                          <button type="button" class="ghost-button" (click)="startEdit(user)">
-                            Edit<span class="visually-hidden"> {{ user.username }}</span>
-                          </button>
-                          <button type="button" class="ghost-button" (click)="onToggleEnabled(user)">
-                            {{ user.enabled ? 'Disable' : 'Enable' }}
-                            <span class="visually-hidden"> {{ user.username }}</span>
-                          </button>
-                          <button type="button" class="danger-button" (click)="onRemove(user)">
-                            Remove<span class="visually-hidden"> {{ user.username }}</span>
-                          </button>
-                        </td>
-                      </tr>
-                    }
-                  }
-                </tbody>
-              </table>
+          <div hlmCardContent class="flex flex-col gap-4">
+            <div hlmField>
+              <label hlmFieldLabel for="search" class="sr-only">Search by username or role</label>
+              <div hlmInputGroup>
+                <div hlmInputGroupAddon>
+                  <ng-icon name="lucideSearch" />
+                </div>
+                <input
+                  hlmInputGroupInput
+                  id="search"
+                  type="search"
+                  placeholder="Search by username or role…"
+                  [value]="usersService.searchInput()"
+                  (input)="onSearch($event)"
+                />
+              </div>
             </div>
-          }
+
+            @if (actionError()) {
+              <div hlmAlert variant="destructive" role="alert">
+                <p hlmAlertDescription>{{ actionError() }}</p>
+              </div>
+            }
+
+            @if (usersService.error()) {
+              <div hlmAlert variant="destructive" role="alert">
+                <p hlmAlertDescription>{{ usersService.error() }}</p>
+              </div>
+            }
+
+            @if (usersService.loading()) {
+              <div class="text-muted-foreground flex items-center gap-2 py-6 text-sm">
+                <hlm-spinner />
+                Loading users…
+              </div>
+            } @else if (usersService.users().length === 0) {
+              <div hlmEmpty>
+                <div hlmEmptyHeader>
+                  <p hlmEmptyTitle>No users found</p>
+                  <p hlmEmptyDescription>
+                    @if (usersService.isSearchActive()) {
+                      No users match "{{ usersService.searchInput() }}".
+                    } @else {
+                      No users yet. Add one above to get started.
+                    }
+                  </p>
+                </div>
+              </div>
+            } @else {
+              <div hlmTableContainer>
+                <table hlmTable>
+                  <caption hlmCaption class="sr-only">List of users, their role and status</caption>
+                  <thead hlmTHead>
+                    <tr hlmTr>
+                      <th hlmTh scope="col">Username</th>
+                      <th hlmTh scope="col">Role</th>
+                      <th hlmTh scope="col">Status</th>
+                      <th hlmTh scope="col">Created</th>
+                      <th hlmTh scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody hlmTBody>
+                    @for (user of usersService.users(); track user.id) {
+                      @if (editingUserId() === user.id) {
+                        <tr hlmTr>
+                          <td hlmTd colspan="5">
+                            <form
+                              class="flex flex-wrap items-start gap-4 py-2"
+                              [formRoot]="editForm"
+                              (submit)="onSaveEdit($event, user)"
+                              novalidate
+                            >
+                              <div hlmField class="min-w-48 flex-1">
+                                <label hlmFieldLabel [for]="'edit-username-' + user.id">Username</label>
+                                <input
+                                  hlmInput
+                                  [id]="'edit-username-' + user.id"
+                                  type="text"
+                                  autocomplete="off"
+                                  [formField]="editForm.username"
+                                />
+                                @for (error of editForm.username().errors(); track error.kind) {
+                                  <hlm-field-error [validator]="error.kind">{{ error.message }}</hlm-field-error>
+                                }
+                              </div>
+                              <div hlmField class="w-fit">
+                                <label hlmFieldLabel [id]="'edit-role-label-' + user.id">Role</label>
+                                <hlm-toggle-group
+                                  type="single"
+                                  variant="outline"
+                                  [nullable]="false"
+                                  [attr.aria-labelledby]="'edit-role-label-' + user.id"
+                                  [value]="editForm.role().value()"
+                                  (valueChange)="setEditRole($event)"
+                                >
+                                  <button hlmToggleGroupItem value="user" class="px-4">User</button>
+                                  <button hlmToggleGroupItem value="admin" class="px-4">Admin</button>
+                                </hlm-toggle-group>
+                              </div>
+                              <div class="flex items-end gap-2">
+                                <button hlmBtn type="submit" size="sm" [disabled]="editBusy()">
+                                  {{ editBusy() ? 'Saving…' : 'Save' }}
+                                </button>
+                                <button hlmBtn type="button" variant="outline" size="sm" (click)="cancelEdit()">
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          </td>
+                        </tr>
+                      } @else {
+                        <tr hlmTr>
+                          <td hlmTd>{{ user.username }}</td>
+                          <td hlmTd>{{ user.role }}</td>
+                          <td hlmTd>
+                            <span hlmBadge [variant]="user.enabled ? 'default' : 'secondary'">
+                              {{ user.enabled ? 'Enabled' : 'Disabled' }}
+                            </span>
+                          </td>
+                          <td hlmTd>{{ formatTimestamp(user.createdAt) }}</td>
+                          <td hlmTd>
+                            <div class="flex flex-wrap gap-2">
+                              <button hlmBtn type="button" variant="outline" size="sm" (click)="startEdit(user)">
+                                Edit<span class="sr-only"> {{ user.username }}</span>
+                              </button>
+                              <button hlmBtn type="button" variant="outline" size="sm" (click)="onToggleEnabled(user)">
+                                {{ user.enabled ? 'Disable' : 'Enable' }}
+                                <span class="sr-only"> {{ user.username }}</span>
+                              </button>
+                              <button hlmBtn type="button" variant="destructive" size="sm" (click)="onRemove(user)">
+                                Remove<span class="sr-only"> {{ user.username }}</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              @if (!usersService.isSearchActive()) {
+                <nav hlmPagination class="justify-between">
+                  <p class="text-muted-foreground text-sm">
+                    Page {{ usersService.pageIndex() + 1 }} of {{ usersService.totalPages() }}
+                    ({{ usersService.totalCount() }} user{{ usersService.totalCount() === 1 ? '' : 's' }})
+                  </p>
+                  <ul hlmPaginationContent>
+                    <li hlmPaginationItem>
+                      <button
+                        hlmBtn
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        [disabled]="!usersService.hasPrevPage()"
+                        aria-label="Go to previous page"
+                        (click)="usersService.prevPage()"
+                      >
+                        <ng-icon name="lucideChevronLeft" />
+                      </button>
+                    </li>
+                    <li hlmPaginationItem>
+                      <button
+                        hlmBtn
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        [disabled]="!usersService.hasNextPage()"
+                        aria-label="Go to next page"
+                        (click)="usersService.nextPage()"
+                      >
+                        <ng-icon name="lucideChevronRight" />
+                      </button>
+                    </li>
+                  </ul>
+                </nav>
+              }
+            }
+          </div>
         </section>
       </main>
     </div>
-  `,
-  styles: `
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    .page {
-      min-height: 100dvh;
-      background: #f4f5f7;
-      color: #111827;
-    }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 1rem 1.5rem;
-      background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    .topbar h1 {
-      margin: 0;
-      font-size: 1.25rem;
-    }
-
-    .topbar-account {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .account-email {
-      font-size: 0.875rem;
-      color: #6b7280;
-    }
-
-    .content {
-      max-width: 60rem;
-      margin: 0 auto;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 0.75rem;
-      padding: 1.25rem 1.5rem;
-    }
-
-    .card h2 {
-      margin: 0 0 1rem;
-      font-size: 1.0625rem;
-    }
-
-    .card-header-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .card-header-row h2 {
-      margin: 0;
-    }
-
-    .add-user-form,
-    .edit-user-form {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-      min-width: 12rem;
-    }
-
-    .search-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-    }
-
-    label {
-      font-size: 0.8125rem;
-      font-weight: 500;
-      color: #374151;
-    }
-
-    input,
-    select {
-      font: inherit;
-      padding: 0.5rem 0.65rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      color: #111827;
-      background: #fff;
-    }
-
-    input:focus-visible,
-    select:focus-visible {
-      outline: 2px solid #2563eb;
-      outline-offset: 1px;
-      border-color: #2563eb;
-    }
-
-    input[aria-invalid='true'] {
-      border-color: #dc2626;
-    }
-
-    .field-error,
-    .form-error {
-      margin: 0;
-      font-size: 0.8125rem;
-      color: #b91c1c;
-    }
-
-    .form-error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 0.5rem;
-      padding: 0.6rem 0.75rem;
-      margin-top: 0.75rem;
-    }
-
-    .primary-button {
-      font: inherit;
-      font-weight: 600;
-      padding: 0.55rem 1rem;
-      border: none;
-      border-radius: 0.5rem;
-      background: #2563eb;
-      color: #fff;
-      cursor: pointer;
-      align-self: flex-end;
-    }
-
-    .primary-button:hover:not(:disabled) {
-      background: #1d4ed8;
-    }
-
-    .primary-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .ghost-button {
-      font: inherit;
-      font-weight: 500;
-      padding: 0.4rem 0.75rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      background: #fff;
-      color: #111827;
-      cursor: pointer;
-    }
-
-    .ghost-button:hover {
-      background: #f9fafb;
-    }
-
-    .danger-button {
-      font: inherit;
-      font-weight: 500;
-      padding: 0.4rem 0.75rem;
-      border: 1px solid #fecaca;
-      border-radius: 0.5rem;
-      background: #fff;
-      color: #b91c1c;
-      cursor: pointer;
-    }
-
-    .danger-button:hover {
-      background: #fef2f2;
-    }
-
-    button:focus-visible {
-      outline: 2px solid #2563eb;
-      outline-offset: 2px;
-    }
-
-    .empty-state {
-      color: #6b7280;
-      font-size: 0.9375rem;
-      margin: 0;
-    }
-
-    .table-scroll {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9375rem;
-    }
-
-    th,
-    td {
-      text-align: left;
-      padding: 0.65rem 0.75rem;
-      border-bottom: 1px solid #e5e7eb;
-      vertical-align: middle;
-    }
-
-    th {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #6b7280;
-    }
-
-    .row-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
-    .status-pill {
-      display: inline-block;
-      padding: 0.15rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .status-pill.status-disabled {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-
-    @media (max-width: 640px) {
-      thead {
-        display: none;
-      }
-
-      table,
-      tbody,
-      tr,
-      td {
-        display: block;
-        width: 100%;
-      }
-
-      tr {
-        border-bottom: 1px solid #e5e7eb;
-        padding: 0.5rem 0;
-      }
-
-      td {
-        border-bottom: none;
-        padding: 0.3rem 0;
-      }
-
-      td[data-label]::before {
-        content: attr(data-label);
-        display: block;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #6b7280;
-      }
-    }
   `,
 })
 export class ManageUsers {
   protected readonly usersService = inject(Users);
   private readonly authService = inject(Auth);
+  protected readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -516,6 +370,18 @@ export class ManageUsers {
 
   onSearch(event: Event): void {
     this.usersService.setSearchTerm((event.target as HTMLInputElement).value);
+  }
+
+  protected setAddRole(value: UserRole | UserRole[] | null | undefined): void {
+    if (typeof value === 'string') {
+      this.addForm.role().value.set(value);
+    }
+  }
+
+  protected setEditRole(value: UserRole | UserRole[] | null | undefined): void {
+    if (typeof value === 'string') {
+      this.editForm.role().value.set(value);
+    }
   }
 
   async onAddUser(event: Event): Promise<void> {
