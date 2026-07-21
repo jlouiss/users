@@ -36,8 +36,8 @@ describe('Login', () => {
 
     expect(compiled.querySelector('input#email')).toBeTruthy();
     expect(compiled.querySelector('input#password')).toBeTruthy();
-    const googleButton = compiled.querySelector('button.google-button');
-    expect(googleButton?.getAttribute('aria-label')).toBe('Sign in with Google');
+    const googleButton = compiled.querySelector('button[aria-label="Sign in with Google"]');
+    expect(googleButton).toBeTruthy();
     expect(googleButton?.querySelector('img')).toBeTruthy();
   });
 
@@ -52,8 +52,8 @@ describe('Login', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('#email-error')).toBeTruthy();
-    expect(compiled.querySelector('#password-error')).toBeTruthy();
+    expect(compiled.textContent).toContain('Email is required.');
+    expect(compiled.textContent).toContain('Password is required.');
   });
 
   it('calls Google sign-in when the Google button is clicked', () => {
@@ -62,7 +62,9 @@ describe('Login', () => {
     const authService = TestBed.inject(Auth);
     const spy = vi.spyOn(authService, 'signInWithGoogle').mockResolvedValue();
 
-    (fixture.nativeElement.querySelector('button.google-button') as HTMLButtonElement).click();
+    (
+      fixture.nativeElement.querySelector('button[aria-label="Sign in with Google"]') as HTMLButtonElement
+    ).click();
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -73,7 +75,11 @@ describe('Login', () => {
     const authService = TestBed.inject(Auth);
     const spy = vi.spyOn(authService, 'signUpWithEmail').mockResolvedValue();
 
-    (fixture.nativeElement.querySelector('button.link-button') as HTMLButtonElement).click();
+    const buttons = fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>;
+    const toggleButton = Array.from(buttons).find((button) =>
+      button.textContent?.includes('Create one'),
+    ) as HTMLButtonElement;
+    toggleButton.click();
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
